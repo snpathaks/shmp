@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Daily Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; } </style>
+    <script src="/static/js/mobile_form.js"></script>
+</head>
+<body class="bg-gray-100 dark:bg-black">
+    <div x-data="mobileForm()" x-init="init()" class="max-w-lg mx-auto p-4 min-h-screen bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+        
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">Daily Report</h1>
+            <div class="text-right">
+                <div class="font-mono text-xs px-2 py-1 rounded" 
+                     :class="{ 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300': isOnline, 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400': !isOnline }">
+                     <span x-text="isOnline ? 'Online' : 'Offline'"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <form @submit.prevent="saveReport" class="space-y-6">
+            <div>
+                <label for="soldier_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Your ID</label>
+                <!-- In a real app, this would be pre-filled or selected from a list -->
+                <select id="soldier_id" x-model="formData.soldier_id" class="mt-1 block w-full bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-md shadow-sm h-12 px-3">
+                    <option value="f3e9b8c0-2c7a-4b6d-8a1e-5b9c1f0d7e6a">Soldier_0 (Sample)</option>
+                    <option value="a1b2c3d4-e5f6-7890-1234-567890abcdef">Soldier_1 (Sample)</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Hours Slept Last Night</label>
+                <input type="number" step="0.5" x-model="formData.sleep_hours" required class="mt-1 block w-full bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-md shadow-sm h-12 px-3" placeholder="e.g., 7.5">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Stress Level (1=Low, 5=High)</label>
+                <div class="flex justify-between">
+                    <template x-for="level in [1, 2, 3, 4, 5]" :key="level">
+                        <button type="button" @click="formData.stress_level = level"
+                                :class="{
+                                    'bg-indigo-600 text-white': formData.stress_level == level, 
+                                    'bg-gray-200 dark:bg-gray-700': formData.stress_level != level
+                                }"
+                                class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold transition">
+                            <span x-text="level"></span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <button type="submit" class="w-full h-14 flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+                Save Report
+            </button>
+        </form>
+
+        <!-- Sync Area -->
+        <div class="mt-10 border-t border-gray-200 dark:border-gray-700 pt-6">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold">Pending Reports</h2>
+                <span class="font-mono text-xl" x-text="pendingCount"></span>
+            </div>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Reports saved offline will appear here. Press Sync when you're back online.</p>
+            <button @click="syncData" :disabled="!isOnline || pendingCount === 0"
+                    class="mt-4 w-full h-14 flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white transition"
+                    :class="{ 'bg-green-600 hover:bg-green-700': isOnline && pendingCount > 0, 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed': !isOnline || pendingCount === 0 }">
+                <span x-show="!syncing">Sync Now</span>
+                <span x-show="syncing">
+                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </span>
+            </button>
+            <div x-show="message" x-text="message" class="mt-4 text-center text-sm p-3 rounded-md"
+                 :class="{ 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300': !error, 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300': error }"
+                 x-transition></div>
+        </div>
+    </div>
+</body>
+</html>
