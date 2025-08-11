@@ -6,11 +6,11 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from . import crud, models, schemas, auth, ml_utils
-from .data import SessionLocal, engine
+from .database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title = "SHMP")
+app = FastAPI(title="SHMP")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -34,7 +34,7 @@ async def login_page(request: Request):
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page(request: Request, db: Session = Depends(get_db), user: models.User = Depends(auth.get_current_user)):
     if user.role != 'commander':
-        raise HTTPException(status_code=403, detail="Access denied. Commander role required.")    
+        raise HTTPException(status_code=403, detail="Access denied. Commander role required.")
     soldiers = crud.get_soldiers_with_risk_scores(db, limit=100)
     alerts = crud.get_active_alerts(db, limit=10)
     return templates.TemplateResponse("dashboard.html", {
@@ -47,7 +47,6 @@ async def dashboard_page(request: Request, db: Session = Depends(get_db), user: 
 @app.get("/mobile-form", response_class=HTMLResponse)
 async def mobile_form_page(request: Request):
     """Serves the mobile data entry form."""
-    # In a real app, you'd pass the list of soldiers for the dropdown.
     return templates.TemplateResponse("mobile_form.html", {"request": request})
 
 
@@ -67,8 +66,8 @@ async def login_for_access_token(db: Session = Depends(get_db), form_data: auth.
 
 @app.post("/api/sync")
 def sync_data(
-    payload: schemas.SyncPayload, 
-    db: Session = Depends(get_db), 
+    payload: schemas.SyncPayload,
+    db: Session = Depends(get_db),
     user: models.User = Depends(auth.get_current_user)
 ):
     soldiers_to_rescore = set()
@@ -80,7 +79,7 @@ def sync_data(
         features = ml_utils.get_features_for_soldier(db, soldier_id)
         if features is None:
             continue
-        
+
         prediction = ml_utils.predict_risk(features)
         score_data = schemas.RiskScoreCreate(
             soldier_id=soldier_id,
@@ -90,8 +89,8 @@ def sync_data(
         crud.create_risk_score(db, score_data)
         if prediction['label'] == 'High':
             crud.create_alert(
-                db=db, 
-                soldier_id=soldier_id, 
+                db=db,
+                soldier_id=soldier_id,
                 message=f"High risk detected with score {prediction['score']:.2f}"
             )
 

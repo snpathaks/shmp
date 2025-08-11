@@ -7,7 +7,7 @@ function mobileForm() {
         message: '',
         error: false,
         formData: {
-            soldier_id: 'f3e9b8c0-2c7a-4b6d-8a1e-5b9c1f0d7e6a',
+            soldier_id: 'f3e9b8c0-2c7a-4b6d-8a1e-5b9c1f0d7e6a', // Default soldier ID for demo
             sleep_hours: null,
             stress_level: null,
         },
@@ -65,7 +65,7 @@ function mobileForm() {
 
             try {
                 const reportsToSync = await this.db.mood_reports.toArray();
-                const token = this.getAuthToken(); // You need a way to get the auth token
+                const token = this.getAuthToken();
 
                 if (!token) {
                     this.showMessage('Authentication error. Please log in again on the main site.', true);
@@ -112,9 +112,6 @@ function mobileForm() {
         },
 
         getAuthToken() {
-            // This is a simplified way to get the token.
-            // In a real app, the token might be stored more securely or refreshed.
-            // We assume the cookie is accessible for this demo.
             const cookies = document.cookie.split('; ').reduce((acc, cookie) => {
                 const [key, value] = cookie.split('=');
                 acc[key] = value;
