@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Mood Tracker - {{ super() }}{% endblock %}
+
+{% block content %}
+    <h1>Log Soldier's Mood</h1>
+    <p>Track the psychological well-being of soldiers to identify potential stress or fatigue.</p>
+
+    <form method="post">
+        <h2>New Mood Entry</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="soldier_id">Soldier ID</label>
+                <input type="text" name="soldier_id" required>
+            </div>
+            <div class="form-group">
+                <label for="mood_rating">Mood Rating (1=Very Poor, 5=Very Good)</label>
+                <input type="number" name="mood_rating" min="1" max="5" required>
+            </div>
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="notes">Notes (Optional)</label>
+                <textarea name="notes" rows="3" placeholder="e.g., mission fatigue, personal issues..."></textarea>
+            </div>
+        </div>
+        <button type="submit">Log Mood</button>
+    </form>
+
+    <h2>Recent Mood Logs</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Soldier ID</th>
+                <th>Mood Rating</th>
+                <th>Notes</th>
+                <th>Logged By</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for mood in moods %}
+            <tr>
+                <td>{{ mood.created_at.split('.')[0] }}</td>
+                <td>{{ mood.soldier_id }}</td>
+                <td>{{ mood.mood_rating }}/5</td>
+                <td>{{ mood.notes or 'N/A' }}</td>
+                <td>{{ mood.username }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="text-align: center;">No mood logs yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

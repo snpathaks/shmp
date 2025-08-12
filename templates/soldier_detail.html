@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Hub for {{ soldier_id }} - {{ super() }}{% endblock %}
+
+{% block head_extra %}
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .shap-bar {
+            display: inline-block;
+            height: 10px;
+            background-color: #4caf50;
+        }
+        .shap-positive .shap-bar {
+            background-color: #4caf50;
+        }
+        .shap-negative .shap-bar {
+            background-color: #f44336;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <h1>Wellness Hub: Soldier {{ soldier_id }}</h1>
+
+    <div id="health-chart"></div>
+
+    <h2>Check-in History & Threat Analysis</h2>
+    <div class="history-container">
+    {% for check in history|reverse %}
+        <div class="check-card">
+            <div class="card-header">
+                <strong>Check-in:</strong> {{ check.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+            </div>
+            <div class="card-body">
+                <div class="metrics">
+                    <h4>Vitals</h4>
+                    <p><strong>Heart Rate:</strong> {{ check.heart_rate }} bpm</p>
+                    <p><strong>Temperature:</strong> {{ check.body_temperature }} °C</p>
+                    <p><strong>SpO2:</strong> {{ check.spo2 }} %</p>
+                    <p><strong>Steps:</strong> {{ check.steps_count }}</p>
+                </div>
+                <div class="analysis">
+                    <h4>Threat Analysis</h4>
+                    <p><strong>Prediction:</strong> <span class="threat-{{ check.prediction_result }}">{{ check.prediction_result }}</span></p>
+                    <div class="shap-explanation">
+                        <strong>Key Factors:</strong>
+                        <ul>
+                        {% for feature, value in check.shap_values.items()|sort(by='value', reverse=true) %}
+                            <li class="shap-{{ 'positive' if value > 0 else 'negative' }}">
+                                {{ feature }}: 
+                                <span class="shap-bar" style="width:{{ ((value|abs) * 200)|round(2) }}px"></span>
+                                <span class="shap-value">({{ '%.2f'|format(value) }})</span>
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+
+    <script>
+        var graph = {{ graph_json|safe }};
+        var layout = graph.layout || {};
+        layout.plot_bgcolor = '#16213e';
+        layout.paper_bgcolor = '#16213e';
+        layout.font = { color: '#dcdcdc' };
+        layout.xaxis = { gridcolor: '#0f3460' };
+        layout.yaxis = { gridcolor: '#0f3460' };
+        layout.yaxis2 = Object.assign({ gridcolor: '#0f3460' }, layout.yaxis2 || {});
+
+        Plotly.newPlot('health-chart', graph.data, layout, {responsive: true});
+    </script>
+{% endblock %}

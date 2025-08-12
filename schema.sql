@@ -1,79 +1,58 @@
-DROP TABLE IF EXISTS soldiers;
-DROP TABLE IF EXISTS health_data;
-DROP TABLE IF EXISTS mission_logs;
-DROP TABLE IF EXISTS audit_log;
-DROP TABLE IF EXISTS wellness_reports;
+DROP TABLE IF EXISTS wellness_checks;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS mood_logs;
 DROP TABLE IF EXISTS alerts;
 
-CREATE TABLE soldiers (
+CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    rank TEXT NOT NULL,
-    unit TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'Soldier',
-    risk_level TEXT DEFAULT 'N/A',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'analyst'
 );
 
-CREATE TABLE health_data (
+INSERT INTO users (username, password_hash, role) VALUES 
+('admin', 'pbkdf2:sha256:260000$Csm8Hp9vI8PmIxzG$6127c35db8be936e489e2ebcc6e2e50f30734236aa876ef63b2ce88354de242b', 'doctor');
+
+CREATE TABLE wellness_checks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    soldier_id INTEGER NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    sleep_hours REAL NOT NULL,
-    stress_level INTEGER NOT NULL,
-    readiness_score INTEGER NOT NULL,
-    physical_exertion INTEGER,
-    hydration_level REAL,
-    FOREIGN KEY (soldier_id) REFERENCES soldiers (id) ON DELETE CASCADE
+    soldier_id TEXT NOT NULL,
+    age INTEGER,
+    heart_rate TEXT, 
+    body_temperature TEXT,
+    spo2 TEXT,
+    steps_count INTEGER,
+    prediction_result TEXT NOT NULL,
+    shap_values TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE mission_logs (
+CREATE TABLE audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    soldier_id INTEGER NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    mission_name TEXT DEFAULT 'Routine Patrol',
-    performance_score REAL NOT NULL,
+    user_id INTEGER,
+    action TEXT NOT NULL,
+    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    details TEXT,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+CREATE TABLE mood_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    soldier_id TEXT NOT NULL,
+    mood_rating INTEGER NOT NULL,
     notes TEXT,
-    FOREIGN KEY (soldier_id) REFERENCES soldiers (id) ON DELETE CASCADE
-);
-
-CREATE TABLE wellness_reports (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    soldier_id INTEGER NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    mood INTEGER NOT NULL, -- e.g.,
-    fatigue INTEGER NOT NULL,
-    comments TEXT,
-    FOREIGN KEY (soldier_id) REFERENCES soldiers (id) ON DELETE CASCADE
+    logged_by_user_id INTEGER,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (logged_by_user_id) REFERENCES users (id)
 );
 
 CREATE TABLE alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    soldier_id INTEGER NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    risk_level TEXT NOT NULL,
-    details TEXT NOT NULL,
-    is_acknowledged INTEGER DEFAULT 0,
-    FOREIGN KEY (soldier_id) REFERENCES soldiers (id) ON DELETE CASCADE
+    soldier_id TEXT NOT NULL,
+    alert_message TEXT NOT NULL,
+    is_acknowledged BOOLEAN NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    acknowledged_by_user_id INTEGER,
+    acknowledged_at TIMESTAMP,
+    FOREIGN KEY (acknowledged_by_user_id) REFERENCES users (id)
 );
-
-CREATE TABLE audit_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    user TEXT NOT NULL,
-    action TEXT NOT NULL,
-    details TEXT
-);
-
-INSERT INTO soldiers (name, rank, unit, role) VALUES
-('David Miller', 'Captain', 'HQ', 'Commander');
-
-INSERT INTO soldiers (name, rank, unit) VALUES
-('John Doe', 'Sergeant', 'Alpha Company'),
-('Jane Smith', 'Corporal', 'Alpha Company'),
-('Mike Ross', 'Private', 'Bravo Company'),
-('Sarah Connor', 'Sergeant', 'Bravo Company'),
-('Alex Ray', 'Private', 'Alpha Company');
-
-INSERT INTO health_data (soldier_id, sleep_hours, stress_level, readiness_score, physical_exertion, hydration_level) VALUES
-(2, 7.5, 4, 88, 5, 1.1);

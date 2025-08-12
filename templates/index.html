@@ -1,371 +1,62 @@
-<!DOCTYPE html>
-<html lang="en" class="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SHMP</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
-    <style>
-        :root { --main-bg: #111827; --card-bg: #1f2937; --border-color: #374151; --text-light: #d1d5db; --text-white: #ffffff; --accent-cyan: #06b6d4; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--main-bg); color: var(--text-light); }
-        .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 0.75rem; }
-        .btn { transition: all 0.2s ease-in-out; }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
-        .risk-high { background-color: #ef4444; color: white; } .risk-medium { background-color: #f97316; color: white; } .risk-low { background-color: #22c55e; color: white; } .risk-na { background-color: #6b7280; color: white; }
-        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); z-index: 40; backdrop-filter: blur(4px); }
-        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 50; max-height: 90vh; overflow-y: auto; }
-        .tab-button.active { border-color: var(--accent-cyan); color: var(--accent-cyan); }
-    </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
-</head>
-<body class="p-4 sm:p-6 lg:p-8">
-    <div class="max-w-screen-2xl mx-auto">
-        <!-- Header -->
-        <header class="mb-6 flex justify-between items-center">
-            <div>
-                <h1 class="text-3xl font-bold text-white">Soldier Wellness & Risk Prediction MVP</h1>
-                <p class="text-gray-400">Real-time monitoring and predictive analytics dashboard.</p>
-            </div>
-            <!-- User Role Switcher (for demo) -->
-            <div class="flex items-center space-x-4">
-                <span class="font-medium text-white">View As:</span>
-                <select id="user-role-switcher" class="bg-gray-700 border border-gray-600 text-white rounded-lg p-2 focus:ring-cyan-500 focus:border-cyan-500">
-                    <!-- Options will be populated by JS -->
-                </select>
-                <i class="fas fa-shield-halved text-5xl text-cyan-500"></i>
-            </div>
-        </header>
+{% extends "base.html" %}
+{% block title %}Dashboard - {{ super() }}{% endblock %}
+{% block content %}
+    <h1>Wellness Dashboard</h1>
 
-        <!-- Commander View -->
-        <main id="commander-view" class="hidden">
-            <!-- Top Row: Alerts and Unit Wellness -->
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-                <div class="xl:col-span-2 card p-6">
-                    <h2 class="text-xl font-semibold text-white mb-4 flex items-center"><i class="fas fa-triangle-exclamation text-red-500 mr-3"></i>Active Alerts</h2>
-                    <div id="alerts-container" class="space-y-3 max-h-64 overflow-y-auto"></div>
-                </div>
-                <div class="card p-6">
-                    <h2 class="text-xl font-semibold text-white mb-4"><i class="fas fa-chart-bar mr-2"></i>Unit Wellness</h2>
-                    <canvas id="wellness-heatmap"></canvas>
-                </div>
+    <form method="post">
+        <h2>Add New Wellness Check</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="soldier_id">Soldier ID</label>
+                <input type="text" name="soldier_id" required>
             </div>
-            <!-- Bottom Row: Roster and Data Logging -->
-            <div class="card p-6">
-                <h2 class="text-xl font-semibold text-white mb-4"><i class="fas fa-users mr-2"></i>Unit Roster</h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="border-b border-gray-700">
-                            <tr>
-                                <th class="p-3">Name</th><th class="p-3">Rank</th><th class="p-3">Unit</th>
-                                <th class="p-3 text-center">Risk Level</th><th class="p-3 text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="soldier-roster"></tbody>
-                    </table>
-                </div>
+            <div class="form-group">
+                <label for="age">Age</label>
+                <input type="number" name="age" required>
             </div>
-        </main>
-
-        <!-- Soldier View -->
-        <main id="soldier-view" class="hidden">
-            <div class="max-w-xl mx-auto card p-8">
-                <h2 class="text-2xl font-bold text-white mb-2">Daily Wellness Report</h2>
-                <p class="text-gray-400 mb-6">Your daily check-in is crucial for maintaining mission readiness.</p>
-                <form id="wellness-form" class="space-y-6">
-                    <div>
-                        <label class="block mb-2 font-medium">How are you feeling overall?</label>
-                        <div class="flex justify-between">
-                            <label class="flex flex-col items-center"><input type="radio" name="mood" value="1" class="sr-only peer"><i class="far fa-face-dizzy text-4xl p-2 rounded-lg peer-checked:bg-red-500 peer-checked:text-white"></i><span class="text-xs mt-1">Poor</span></label>
-                            <label class="flex flex-col items-center"><input type="radio" name="mood" value="2" class="sr-only peer"><i class="far fa-face-frown text-4xl p-2 rounded-lg peer-checked:bg-orange-500 peer-checked:text-white"></i><span class="text-xs mt-1">Bad</span></label>
-                            <label class="flex flex-col items-center"><input type="radio" name="mood" value="3" class="sr-only peer" checked><i class="far fa-face-meh text-4xl p-2 rounded-lg peer-checked:bg-yellow-500 peer-checked:text-white"></i><span class="text-xs mt-1">Okay</span></label>
-                            <label class="flex flex-col items-center"><input type="radio" name="mood" value="4" class="sr-only peer"><i class="far fa-face-smile text-4xl p-2 rounded-lg peer-checked:bg-lime-500 peer-checked:text-white"></i><span class="text-xs mt-1">Good</span></label>
-                            <label class="flex flex-col items-center"><input type="radio" name="mood" value="5" class="sr-only peer"><i class="far fa-face-laugh-beam text-4xl p-2 rounded-lg peer-checked:bg-green-500 peer-checked:text-white"></i><span class="text-xs mt-1">Great</span></label>
-                        </div>
-                    </div>
-                     <div>
-                        <label for="fatigue-level" class="block mb-2 font-medium">Fatigue Level</label>
-                        <input type="range" id="fatigue-level" min="1" max="5" value="3" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
-                        <div class="flex justify-between text-xs px-1 mt-1"><span>Exhausted</span><span>Tired</span><span>Okay</span><span>Rested</span><span>Energized</span></div>
-                    </div>
-                    <div>
-                        <label for="wellness-comments" class="block mb-2 font-medium">Additional Comments (Optional)</label>
-                        <textarea id="wellness-comments" rows="3" class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5" placeholder="Anything to report..."></textarea>
-                    </div>
-                    <button type="submit" class="btn w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg">Submit Wellness Report</button>
-                </form>
+            <div class="form-group">
+                <label for="heart_rate">Heart Rate (bpm)</label>
+                <input type="number" name="heart_rate" required>
             </div>
-        </main>
-    </div>
-
-    <!-- Soldier Details Modal -->
-    <div id="details-modal" class="hidden">
-        <div class="modal-backdrop" onclick="closeModal()"></div>
-        <div id="modal-content" class="modal card w-11/12 lg:w-3/4 xl:w-2/3 p-6">
-            <!-- Content generated by JS -->
+            <div class="form-group">
+                <label for="body_temperature">Body Temperature (°C)</label>
+                <input type="text" name="body_temperature" required>
+            </div>
+            <div class="form-group">
+                <label for="spo2">SpO2 (%)</label>
+                <input type="number" name="spo2" required>
+            </div>
+            <div class="form-group">
+                <label for="steps_count">Steps Count</label>
+                <input type="number" name="steps_count" required>
+            </div>
         </div>
-    </div>
-    
-    <!-- Simple Alert/Toast Notification -->
-    <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg hidden transition-opacity duration-300">
-        <p id="toast-message"></p>
-    </div>
+        <button type="submit">Submit Check</button>
+    </form>
 
-    <script>
-    // --- SCRIPT START ---
-    document.addEventListener('DOMContentLoaded', () => {
-        const API_BASE = window.location.origin;
-        let wellnessChart = null;
-        let soldierHistoryChart = null;
-        let allSoldiers = [];
-        let currentUser = null;
-
-        // --- UI Elements ---
-        const roleSwitcher = document.getElementById('user-role-switcher');
-        const commanderView = document.getElementById('commander-view');
-        const soldierView = document.getElementById('soldier-view');
-        const soldierRoster = document.getElementById('soldier-roster');
-        const alertsContainer = document.getElementById('alerts-container');
-        const wellnessForm = document.getElementById('wellness-form');
-        const modal = document.getElementById('details-modal');
-        const modalContent = document.getElementById('modal-content');
-        const toast = document.getElementById('toast');
-        const toastMessage = document.getElementById('toast-message');
-
-        // --- Utility Functions ---
-        const showToast = (message, isError = false) => {
-            toastMessage.textContent = message;
-            toast.className = `fixed bottom-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transition-opacity duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 3000);
-        };
-
-        const getRiskBadge = (riskLevel) => {
-            const level = riskLevel || 'N/A';
-            const baseClasses = 'px-3 py-1 text-xs font-semibold rounded-full whitespace-nowrap';
-            const riskMap = {
-                high: 'risk-high', medium: 'risk-medium', low: 'risk-low',
-            };
-            const riskClass = riskMap[level.toLowerCase()] || 'risk-na';
-            return `<span class="${baseClasses} ${riskClass}">${level}</span>`;
-        };
-
-        const switchView = (role, soldierId) => {
-            currentUser = allSoldiers.find(s => s.id == soldierId);
-            if (!currentUser) return;
-
-            if (currentUser.role === 'Commander') {
-                commanderView.classList.remove('hidden');
-                soldierView.classList.add('hidden');
-                fetchAllCommanderData();
-            } else {
-                commanderView.classList.add('hidden');
-                soldierView.classList.remove('hidden');
-                document.querySelector('#soldier-view h2').textContent = `Daily Wellness Report: ${currentUser.name}`;
-            }
-        };
-
-        // --- Modal & Charting ---
-        window.openModal = async (soldierId) => {
-            try {
-                const response = await fetch(`${API_BASE}/api/soldier_details/${soldierId}`);
-                if (!response.ok) throw new Error('Failed to fetch details');
-                const data = await response.json();
-                
-                const { info, health_history, wellness_history } = data;
-                
-                modalContent.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="text-2xl font-bold text-white">${info.name} <span class="text-lg font-normal text-gray-400">(${info.rank})</span></h3>
-                            <p class="text-cyan-400">${info.unit}</p>
-                        </div>
-                        <button onclick="closeModal()" class="text-gray-400 hover:text-white">&times;</button>
-                    </div>
-                    <div class="mt-4 border-t border-gray-700 pt-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <h4 class="text-lg font-semibold text-white mb-2">Health Metrics Trend</h4>
-                                <canvas id="soldier-history-chart"></canvas>
-                            </div>
-                            <div>
-                                <h4 class="text-lg font-semibold text-white mb-2">Recent Wellness Reports</h4>
-                                <div class="space-y-3 max-h-64 overflow-y-auto pr-2" id="wellness-history-list"></div>
-                            </div>
-                        </div>
-                    </div>`;
-                
-                modal.classList.remove('hidden');
-                
-                // Render charts and lists
-                renderSoldierHistoryChart(health_history);
-                const wellnessList = document.getElementById('wellness-history-list');
-                if (wellness_history.length > 0) {
-                    wellness_history.forEach(r => {
-                        wellnessList.innerHTML += `
-                            <div class="bg-gray-900 p-3 rounded-lg">
-                                <div class="flex justify-between items-center text-sm mb-1">
-                                    <span>Mood: ${r.mood}/5, Fatigue: ${r.fatigue}/5</span>
-                                    <span class="text-gray-500">${new Date(r.timestamp).toLocaleDateString()}</span>
-                                </div>
-                                <p class="text-gray-400 italic">"${r.comments || 'No comments'}"</p>
-                            </div>`;
-                    });
-                } else {
-                    wellnessList.innerHTML = `<p class="text-gray-500">No wellness reports submitted.</p>`;
-                }
-
-            } catch (error) {
-                console.error('Error opening modal:', error);
-                showToast('Could not load soldier details.', true);
-            }
-        };
-
-        window.closeModal = () => modal.classList.add('hidden');
-
-        const renderSoldierHistoryChart = (history) => {
-            if (soldierHistoryChart) soldierHistoryChart.destroy();
-            const ctx = document.getElementById('soldier-history-chart').getContext('2d');
-            
-            const labels = history.map(h => new Date(h.timestamp)).reverse();
-            const sleepData = history.map(h => h.sleep_hours).reverse();
-            const stressData = history.map(h => h.stress_level).reverse();
-            const readinessData = history.map(h => h.readiness_score).reverse();
-
-            soldierHistoryChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Sleep (Hours)', data: sleepData, borderColor: '#34d399', tension: 0.1, yAxisID: 'y' },
-                        { label: 'Stress Level', data: stressData, borderColor: '#f87171', tension: 0.1, yAxisID: 'y' },
-                        { label: 'Readiness (%)', data: readinessData, borderColor: '#60a5fa', tension: 0.1, yAxisID: 'y1' }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        x: { type: 'time', time: { unit: 'day' }, grid: { color: '#374151' } },
-                        y: { position: 'left', beginAtZero: true, max: 10, grid: { color: '#374151' }, title: { display: true, text: 'Sleep / Stress' } },
-                        y1: { position: 'right', beginAtZero: true, max: 100, grid: { drawOnChartArea: false }, title: { display: true, text: 'Readiness' } }
-                    }
-                }
-            });
-        };
-
-        // --- Data Fetching and Rendering ---
-        const fetchAllCommanderData = () => {
-            fetchAlerts();
-            fetchUnitWellness();
-        };
-
-        const fetchSoldiers = async () => {
-            try {
-                const response = await fetch(`${API_BASE}/api/soldiers`);
-                allSoldiers = await response.json();
-                
-                soldierRoster.innerHTML = '';
-                roleSwitcher.innerHTML = '';
-
-                allSoldiers.forEach(s => {
-                    // Populate role switcher
-                    roleSwitcher.innerHTML += `<option value="${s.id}">${s.name} (${s.role})</option>`;
-                    
-                    // Populate roster (only for commander view)
-                    if (s.role === 'Soldier') {
-                        soldierRoster.innerHTML += `
-                            <tr class="border-b border-gray-700 hover:bg-gray-700/50">
-                                <td class="p-3 font-medium text-white">${s.name}</td>
-                                <td class="p-3">${s.rank}</td>
-                                <td class="p-3">${s.unit}</td>
-                                <td class="p-3 text-center" id="risk-level-${s.id}">${getRiskBadge(s.risk_level)}</td>
-                                <td class="p-3 text-center space-x-2">
-                                    <button class="btn bg-gray-600 hover:bg-gray-500 text-white text-xs py-1 px-2 rounded" onclick="openModal(${s.id})"><i class="fas fa-chart-line"></i> Details</button>
-                                    <button class="btn bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 px-2 rounded" onclick="runPrediction(${s.id})"><i class="fas fa-sync-alt"></i> Predict</button>
-                                </td>
-                            </tr>`;
-                    }
-                });
-                // Set initial view based on the first user
-                switchView(allSoldiers[0].role, allSoldiers[0].id);
-            } catch (error) {
-                console.error('Error fetching soldiers:', error);
-                showToast('Could not load soldier roster.', true);
-            }
-        };
-
-        const fetchAlerts = async () => {
-            try {
-                const response = await fetch(`${API_BASE}/api/alerts`);
-                const alerts = await response.json();
-                alertsContainer.innerHTML = '';
-                if (alerts.length === 0) {
-                    alertsContainer.innerHTML = '<p class="text-gray-500">No active alerts. All units clear.</p>';
-                    return;
-                }
-                alerts.forEach(a => {
-                    alertsContainer.innerHTML += `
-                        <div class="bg-red-900/50 border-l-4 border-red-500 p-3 rounded-r-lg flex justify-between items-center">
-                            <div>
-                                <p class="font-bold text-red-400">${a.name} (${a.rank}, ${a.unit}) - HIGH RISK</p>
-                                <p class="text-sm text-gray-300">${a.details}</p>
-                                <p class="text-xs text-gray-500">${new Date(a.timestamp).toLocaleString()}</p>
-                            </div>
-                            <button class="btn bg-red-600 hover:bg-red-500 text-white text-xs py-1 px-3 rounded" onclick="acknowledgeAlert(${a.id})">Acknowledge</button>
-                        </div>`;
-                });
-            } catch (error) {
-                console.error('Error fetching alerts:', error);
-            }
-        };
-        
-        const fetchUnitWellness = async () => { /* ... same as before, no changes needed ... */ };
-
-        // --- Actions ---
-        window.runPrediction = async (soldierId) => { /* ... mostly same, but with toast notifications ... */ };
-        window.acknowledgeAlert = async (alertId) => {
-            try {
-                await fetch(`${API_BASE}/api/alerts/acknowledge/${alertId}`, { method: 'POST' });
-                showToast('Alert acknowledged.');
-                fetchAlerts();
-            } catch (error) {
-                showToast('Failed to acknowledge alert.', true);
-            }
-        };
-
-        wellnessForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const payload = {
-                soldier_id: currentUser.id,
-                mood: wellnessForm.elements['mood'].value,
-                fatigue: document.getElementById('fatigue-level').value,
-                comments: document.getElementById('wellness-comments').value
-            };
-            try {
-                const response = await fetch(`${API_BASE}/api/log_wellness`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!response.ok) throw new Error('Submission failed');
-                showToast('Wellness report submitted successfully!');
-                wellnessForm.reset();
-            } catch (error) {
-                showToast(error.message, true);
-            }
-        });
-
-        roleSwitcher.addEventListener('change', (e) => {
-            const selectedSoldier = allSoldiers.find(s => s.id == e.target.value);
-            switchView(selectedSoldier.role, selectedSoldier.id);
-        });
-
-        // --- Initial Load ---
-        fetchSoldiers();
-    });
-    // --- SCRIPT END ---
-    </script>
-</body>
-</html>
+    <h2>Soldier Roster</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Soldier ID</th>
+                <th>Last Check-in</th>
+                <th>Last Known Threat Level</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for soldier in soldiers %}
+            <tr>
+                <td>{{ soldier.soldier_id }}</td>
+                <td>{{ soldier.last_check_in.split('.')[0] }}</td>
+                <td><span class="threat-{{ soldier.prediction_result }}">{{ soldier.prediction_result }}</span></td>
+                <td><a href="{{ url_for('soldier_detail', soldier_id=soldier.soldier_id) }}" class="button-link">View Hub</a></td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" style="text-align: center;">No soldiers found. Add a wellness check to begin.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log - {{ super() }}{% endblock %}
+
+{% block content %}
+    <h1>System Audit Log</h1>
+    <p>Actions performed by high-privilege users are recorded here for security and accountability.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.timestamp.split('.')[0] }}</td>
+                <td>{{ log.username or 'System' }}</td>
+                <td>{{ log.action }}</td>
+                <td>{{ log.details }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" style="text-align: center;">No audit logs found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
