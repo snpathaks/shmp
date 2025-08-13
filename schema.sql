@@ -39,7 +39,10 @@ CREATE TABLE audit_logs (
 CREATE TABLE mood_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     soldier_id TEXT NOT NULL,
-    mood_rating INTEGER NOT NULL,
+    mood_rating INTEGER NOT NULL, -- Overall mood (1-5)
+    stress_level INTEGER NOT NULL DEFAULT 3, -- Specific stress level (1-5)
+    fatigue_level INTEGER NOT NULL DEFAULT 3, -- Specific fatigue level (1-5)
+    sleep_quality INTEGER NOT NULL DEFAULT 3, -- Sleep quality (1-5)
     notes TEXT,
     logged_by_user_id INTEGER,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

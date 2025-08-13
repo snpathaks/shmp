@@ -1,55 +1,113 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
-{% block title %}Mood Tracker - {{ super() }}{% endblock %}
+{% block header %}
+  <h1>{% block title %}Mental Wellness Tracker{% endblock %}</h1>
+{% endblock %}
 
 {% block content %}
-    <h1>Log Soldier's Mood</h1>
-    <p>Track the psychological well-being of soldiers to identify potential stress or fatigue.</p>
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h3>Wellness Analysis Dashboard</h3>
+            </div>
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('mood_tracker') }}">
+                    <div style="display: flex; align-items: flex-end; gap: 1rem;">
+                        <div style="flex-grow: 1;">
+                            <label for="soldier_id">Select Soldier to Analyze</label>
+                            <select name="soldier_id" id="soldier_id" required>
+                                <option value="" disabled {% if not selected_soldier_id %}selected{% endif %}>-- Choose a Soldier --</option>
+                                {% for soldier in all_soldiers %}
+                                <option value="{{ soldier.soldier_id }}" {% if soldier.soldier_id == selected_soldier_id %}selected{% endif %}>
+                                    {{ soldier.soldier_id }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <button type="submit" class="btn btn-primary">Analyze</button>
+                        </div>
+                    </div>
+                </form>
 
-    <form method="post">
-        <h2>New Mood Entry</h2>
-        <div class="form-grid">
-            <div class="form-group">
-                <label for="soldier_id">Soldier ID</label>
-                <input type="text" name="soldier_id" required>
-            </div>
-            <div class="form-group">
-                <label for="mood_rating">Mood Rating (1=Very Poor, 5=Very Good)</label>
-                <input type="number" name="mood_rating" min="1" max="5" required>
-            </div>
-            <div class="form-group" style="grid-column: 1 / -1;">
-                <label for="notes">Notes (Optional)</label>
-                <textarea name="notes" rows="3" placeholder="e.g., mission fatigue, personal issues..."></textarea>
+                {% if mood_graph_json %}
+                <div class="mt-4">
+                    <div id="moodChart" class="plotly-chart"></div>
+                </div>
+                {% elif selected_soldier_id %}
+                <div class="flash warning mt-4">No mood data found for Soldier {{ selected_soldier_id }}.</div>
+                {% endif %}
+                {% if latest_summary %}
+                <div class="mt-3">
+                    <h4>Latest Summary</h4>
+                    <ul>
+                        <li><strong>Mood:</strong> {{ latest_summary.mood_rating }}</li>
+                        <li><strong>Stress:</strong> {{ latest_summary.stress_level }}</li>
+                        <li><strong>Fatigue:</strong> {{ latest_summary.fatigue_level }}</li>
+                        <li><strong>Sleep:</strong> {{ latest_summary.sleep_quality }}</li>
+                        <li><strong>Wellness Score:</strong> {{ latest_summary.wellness_score }}</li>
+                    </ul>
+                </div>
+                {% endif %}
+                {% if insights %}
+                <div class="mt-3">
+                    <h4>Insights</h4>
+                    <ul>
+                        {% for line in insights %}
+                        <li>{{ line }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
             </div>
         </div>
-        <button type="submit">Log Mood</button>
-    </form>
+    </div>
 
-    <h2>Recent Mood Logs</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Timestamp</th>
-                <th>Soldier ID</th>
-                <th>Mood Rating</th>
-                <th>Notes</th>
-                <th>Logged By</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for mood in moods %}
-            <tr>
-                <td>{{ mood.created_at.split('.')[0] }}</td>
-                <td>{{ mood.soldier_id }}</td>
-                <td>{{ mood.mood_rating }}/5</td>
-                <td>{{ mood.notes or 'N/A' }}</td>
-                <td>{{ mood.username }}</td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="5" style="text-align: center;">No mood logs yet.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h3>Log New Mood Entry</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="form-field">
+                        <label for="soldier_id_log">Soldier ID</label>
+                        <input type="text" id="soldier_id_log" name="soldier_id" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="mood_rating">Overall Mood (1=Poor, 5=Excellent)</label>
+                        <input type="range" min="1" max="5" step="1" id="mood_rating" name="mood_rating" value="3">
+                    </div>
+                    <div class="form-field">
+                        <label for="stress_level">Stress Level (1=Low, 5=High)</label>
+                        <input type="range" min="1" max="5" step="1" id="stress_level" name="stress_level" value="3">
+                    </div>
+                    <div class="form-field">
+                        <label for="fatigue_level">Fatigue Level (1=Low, 5=High)</label>
+                        <input type="range" min="1" max="5" step="1" id="fatigue_level" name="fatigue_level" value="3">
+                    </div>
+                     <div class="form-field">
+                        <label for="notes">Notes (Optional)</label>
+                        <textarea id="notes" name="notes" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-block">Save Log</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script id="mood-data" type="application/json">{{ mood_graph_json|tojson|safe }}</script>
+<script>
+    const moodDataEl = document.getElementById('mood-data');
+    const graphJson = moodDataEl && moodDataEl.textContent ? JSON.parse(moodDataEl.textContent) : null;
+    if (graphJson) {
+        Plotly.newPlot('moodChart', graphJson.data, graphJson.layout, {responsive: true});
+    }
+</script>
 {% endblock %}

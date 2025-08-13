@@ -1,6 +1,3 @@
-# soldier-health-monitoring/app.py
-# FINAL, COMPLETE, AND CORRECTED VERSION
-
 import sqlite3
 import pandas as pd
 import pickle
@@ -8,16 +5,13 @@ import json
 import shap
 import plotly
 import plotly.graph_objects as go
-from flask import (Flask, render_template, request, redirect, url_for, flash, g,
-                   abort)
+from flask import (Flask, render_template, request, redirect, url_for, flash, g, abort)
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import (LoginManager, UserMixin, login_user, logout_user,
-                       login_required, current_user)
+from flask_login import (LoginManager, UserMixin, login_user, logout_user, login_required, current_user)
 from cryptography.fernet import Fernet
 from functools import wraps
 import datetime
 
-# --- App Configuration ---
 app = Flask(__name__)
 try:
     app.config.from_object('config.Config')
@@ -56,14 +50,12 @@ try:
         label_encoder = pickle.load(f)
     with open('model_columns.pkl', 'rb') as f:
         model_columns = pickle.load(f)
-    # Using the correct path for training data
     X_train_sample = pd.read_csv('training/wellness_data.csv')[model_columns].sample(3, random_state=42)
     explainer = shap.KernelExplainer(model.predict_proba, X_train_sample.values)
     print("ML Models and SHAP Explainer loaded successfully.")
 except Exception as e:
     print(f"An error occurred during model loading: {e}")
     model, label_encoder, explainer = None, None, None
-
 
 # --- User Authentication & Security ---
 login_manager = LoginManager()
@@ -118,6 +110,36 @@ def log_action(action, details=""):
     except Exception as e:
         print(f"Audit log failed: {e}")
 
+def ensure_mood_logs_schema() -> None:
+    try:
+        db = get_db()
+        columns = db.execute('PRAGMA table_info(mood_logs)').fetchall()
+        existing_column_names = {col['name'] for col in columns}
+
+        def add_column(column_def: str) -> None:
+            try:
+                db.execute(f'ALTER TABLE mood_logs ADD COLUMN {column_def}')
+                db.commit()
+            except Exception as e:
+                print(f"Schema migration notice: {e}")
+
+        if 'mood_rating' not in existing_column_names:
+            add_column('mood_rating INTEGER DEFAULT 3')
+        if 'stress_level' not in existing_column_names:
+            add_column('stress_level INTEGER DEFAULT 3')
+        if 'fatigue_level' not in existing_column_names:
+            add_column('fatigue_level INTEGER DEFAULT 3')
+        if 'sleep_quality' not in existing_column_names:
+            add_column('sleep_quality INTEGER DEFAULT 3')
+        if 'notes' not in existing_column_names:
+            add_column('notes TEXT')
+        if 'logged_by_user_id' not in existing_column_names:
+            add_column('logged_by_user_id INTEGER')
+        if 'created_at' not in existing_column_names:
+            add_column('created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+    except Exception as e:
+        print(f"Schema check failed (non-fatal): {e}")
+
 # --- Routes ---
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -150,8 +172,7 @@ def register():
         password_hash = generate_password_hash(password)
         try:
             db = get_db()
-            db.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-                       (username, password_hash, role))
+            db.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",(username, password_hash, role))
             db.commit()
             flash(f"User '{username}' created successfully. Please log in.", 'success')
             return redirect(url_for('login'))
@@ -182,15 +203,24 @@ def index():
                 'Steps Count': [int(request.form['steps_count'])]
             }
             input_df = pd.DataFrame.from_dict(input_data_dict)[model_columns]
+
             prediction_proba = model.predict_proba(input_df.values)[0]
             prediction_encoded = prediction_proba.argmax()
             prediction = label_encoder.inverse_transform([prediction_encoded])[0]
+
             shap_values = explainer.shap_values(input_df.values)
-            shap_explanation = dict(zip(model_columns, shap_values[prediction_encoded][0]))
+            shap_for_label = shap_values[prediction_encoded]
+            shap_explanation = {feature: float(value) for feature, value in zip(model_columns, shap_for_label)}
             shap_json = json.dumps(shap_explanation)
+
+            age_val = int(input_df.iloc[0]['Age'])
+            hr_val = int(input_df.iloc[0]['Heart Rate'])
+            temp_val = float(input_df.iloc[0]['Body Temperature'])
+            spo2_val = int(input_df.iloc[0]['SpO2'])
+            steps_count_val = int(input_df.iloc[0]['Steps Count'])
+
             db = get_db()
-            db.execute('INSERT INTO wellness_checks (soldier_id, age, heart_rate, body_temperature, spo2, steps_count, prediction_result, shap_values) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                       (soldier_id, int(input_df['Age']), encrypt_data(int(input_df['Heart Rate'])), encrypt_data(float(input_df['Body Temperature'])), encrypt_data(int(input_df['SpO2'])), int(input_df['Steps Count']), prediction, shap_json))
+            db.execute('INSERT INTO wellness_checks (soldier_id, age, heart_rate, body_temperature, spo2, steps_count, prediction_result, shap_values) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (soldier_id, age_val, encrypt_data(hr_val), encrypt_data(temp_val), encrypt_data(spo2_val), steps_count_val, prediction, shap_json))
             db.commit()
             log_action("WELLNESS_CHECK_ADD", f"Added check for {soldier_id}. Threat: {prediction}")
             flash(f'Wellness check for Soldier {soldier_id} added. Threat Level: {prediction}', 'success')
@@ -210,6 +240,7 @@ def soldier_detail(soldier_id):
     if not checks:
         flash('No data found for this soldier.', 'error')
         return redirect(url_for('index'))
+        
     history = []
     for check in checks:
         dec_check = dict(check)
@@ -217,35 +248,205 @@ def soldier_detail(soldier_id):
         dec_check['body_temperature'] = decrypt_data(check['body_temperature'])
         dec_check['spo2'] = decrypt_data(check['spo2'])
         dec_check['shap_values'] = json.loads(check['shap_values']) if check['shap_values'] else {}
+        dec_check['created_at'] = datetime.datetime.strptime(check['created_at'], '%Y-%m-%d %H:%M:%S')
         history.append(dec_check)
+        
     df = pd.DataFrame(history)
     df['created_at'] = pd.to_datetime(df['created_at'])
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df['created_at'], y=df['heart_rate'].astype(float), mode='lines+markers', name='Heart Rate'))
-    fig.add_trace(go.Scatter(x=df['created_at'], y=df['body_temperature'].astype(float), mode='lines+markers', name='Temperature', yaxis='y2'))
-    fig.update_layout(title='Health Metrics Over Time', template='plotly_dark', yaxis=dict(title='Heart Rate (bpm)'), yaxis2=dict(title='Temp (°C)', overlaying='y', side='right'), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-    graph_json = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
-    return render_template('soldier_detail.html', soldier_id=soldier_id, history=history, graph_json=graph_json)
+
+    fig_metrics = go.Figure()
+    fig_metrics.add_trace(go.Scatter(x=df['created_at'], y=df['heart_rate'].astype(float), mode='lines+markers', name='Heart Rate'))
+    fig_metrics.add_trace(go.Scatter(x=df['created_at'], y=df['body_temperature'].astype(float), mode='lines+markers', name='Temperature', yaxis='y2'))
+    fig_metrics.update_layout(
+        title='Health Metrics Over Time', template='plotly_dark',
+        yaxis=dict(title='Heart Rate (bpm)'),
+        yaxis2=dict(title='Temp (°C)', overlaying='y', side='right'),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    graph_json_metrics = json.dumps(fig_metrics, cls=plotly.utils.PlotlyJSONEncoder)
+
+    shap_graph_json = None
+    latest_check = history[-1] if history else None
+    if latest_check and latest_check['shap_values']:
+        shap_df = pd.DataFrame(list(latest_check['shap_values'].items()), columns=['Feature', 'SHAP Value']).sort_values(by='SHAP Value', ascending=True)
+        shap_df['Color'] = shap_df['SHAP Value'].apply(lambda x: '#FF6347' if x > 0 else '#4682B4')
+        
+        fig_shap = go.Figure()
+        fig_shap.add_trace(go.Bar(
+            x=shap_df['SHAP Value'],
+            y=shap_df['Feature'],
+            orientation='h',
+            marker_color=shap_df['Color']
+        ))
+        fig_shap.update_layout(
+            title=f"Why the prediction was '{latest_check['prediction_result']}' (Latest Check)",
+            xaxis_title="Contribution to Threat Level (SHAP Value)",
+            yaxis_title="Health Feature",
+            template='plotly_dark',
+            showlegend=False
+        )
+        shap_graph_json = json.dumps(fig_shap, cls=plotly.utils.PlotlyJSONEncoder)
+
+    return render_template('soldier_detail.html', soldier_id=soldier_id, history=history, graph_json_metrics=graph_json_metrics, shap_graph_json=shap_graph_json)
+
 
 @app.route('/mood-tracker', methods=['GET', 'POST'])
 @login_required
 def mood_tracker():
+    ensure_mood_logs_schema()
     db = get_db()
     if request.method == 'POST':
         try:
             soldier_id = request.form['soldier_id']
             mood_rating = int(request.form['mood_rating'])
+            stress_level = int(request.form['stress_level'])
+            fatigue_level = int(request.form['fatigue_level'])
+            sleep_quality = int(request.form['sleep_quality'])
             notes = request.form.get('notes', '')
-            db.execute('INSERT INTO mood_logs (soldier_id, mood_rating, notes, logged_by_user_id) VALUES (?, ?, ?, ?)', (soldier_id, mood_rating, notes, current_user.id))
+
+            db.execute('''
+                INSERT INTO mood_logs 
+                (soldier_id, mood_rating, stress_level, fatigue_level, sleep_quality, notes, logged_by_user_id) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (soldier_id, mood_rating, stress_level, fatigue_level, sleep_quality, notes, current_user.id))
+            
             db.commit()
-            log_action("MOOD_LOG_ADD", f"Mood log added for Soldier {soldier_id}.")
+            log_action("MOOD_LOG_ADD", f"Detailed mood log added for Soldier {soldier_id}.")
             flash(f"Mood log for Soldier {soldier_id} has been successfully recorded.", 'success')
+            return redirect(url_for('mood_tracker', soldier_id=soldier_id))
         except Exception as e:
             log_action("ERROR", f"Error on mood tracker form submission: {e}")
             flash(f"An error occurred while logging mood: {e}", 'error')
-        return redirect(url_for('mood_tracker'))
-    moods = db.execute('SELECT m.created_at, m.soldier_id, m.mood_rating, m.notes, u.username FROM mood_logs m JOIN users u ON m.logged_by_user_id = u.id ORDER BY m.created_at DESC LIMIT 20').fetchall()
-    return render_template('mood_tracker.html', moods=moods)
+    
+    mood_graph_json = None
+    notes = []
+    selected_soldier_id = request.args.get('soldier_id')
+
+    if selected_soldier_id:
+        mood_data = db.execute('''
+            SELECT created_at, mood_rating, stress_level, fatigue_level, sleep_quality, notes 
+            FROM mood_logs WHERE soldier_id = ? ORDER BY created_at ASC
+        ''', (selected_soldier_id,)).fetchall()
+
+        if mood_data:
+            rows = [dict(r) for r in mood_data]
+            df = pd.DataFrame.from_records(rows)
+
+            timestamps = None
+            if 'created_at' in df.columns:
+                timestamps = pd.to_datetime(df['created_at'], errors='coerce')
+            x_values = timestamps if (timestamps is not None and timestamps.notna().any()) else list(range(1, len(df) + 1))
+
+            for col in ['mood_rating', 'stress_level', 'fatigue_level', 'sleep_quality']:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+
+            def compute_wellness(row):
+                stress_component = 6 - (row.get('stress_level', 3) or 3)
+                fatigue_component = 6 - (row.get('fatigue_level', 3) or 3)
+                sleep_component = row.get('sleep_quality', 3) or 3
+                mood_component = row.get('mood_rating', 3) or 3
+                total = stress_component + fatigue_component + sleep_component + mood_component
+                return round((total / 20) * 100, 2)
+
+            df['wellness_score'] = df.apply(compute_wellness, axis=1)
+            fig = go.Figure()
+            if 'stress_level' in df.columns:
+                fig.add_trace(go.Scatter(x=x_values, y=df['stress_level'], mode='lines+markers', name='Stress Level'))
+            if 'fatigue_level' in df.columns:
+                fig.add_trace(go.Scatter(x=x_values, y=df['fatigue_level'], mode='lines+markers', name='Fatigue Level'))
+            if 'sleep_quality' in df.columns:
+                fig.add_trace(go.Scatter(x=x_values, y=df['sleep_quality'], mode='lines+markers', name='Sleep Quality'))
+            if 'mood_rating' in df.columns:
+                fig.add_trace(go.Scatter(x=x_values, y=df['mood_rating'], mode='lines+markers', name='Overall Mood'))
+
+            fig.add_trace(go.Scatter(x=x_values, y=df['wellness_score'], mode='lines+markers', name='Wellness Score (0-100)', yaxis='y2'))
+
+            fig.update_layout(
+                title=f'Mental Wellness Trends for Soldier {selected_soldier_id}',
+                xaxis_title='Date' if isinstance(x_values, pd.Series) else 'Entry #',
+                yaxis=dict(title='Level (1-5)'),
+                yaxis2=dict(title='Wellness (0-100)', overlaying='y', side='right', rangemode='tozero'),
+                template='plotly_dark',
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            mood_graph_json = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
+
+            insights = []
+            if len(df) >= 2:
+                def trend(col):
+                    if col in df.columns and df[col].notna().any():
+                        return df[col].iloc[-1] - df[col].iloc[0]
+                    return 0
+                stress_trend = trend('stress_level')
+                fatigue_trend = trend('fatigue_level')
+                sleep_trend = trend('sleep_quality')
+                mood_trend = trend('mood_rating')
+                insights.append(f"Stress is {'up' if stress_trend>0 else 'down' if stress_trend<0 else 'stable'} by {abs(round(stress_trend,1))}.")
+                insights.append(f"Fatigue is {'up' if fatigue_trend>0 else 'down' if fatigue_trend<0 else 'stable'} by {abs(round(fatigue_trend,1))}.")
+                insights.append(f"Sleep quality is {'up' if sleep_trend>0 else 'down' if sleep_trend<0 else 'stable'} by {abs(round(sleep_trend,1))}.")
+                insights.append(f"Mood is {'up' if mood_trend>0 else 'down' if mood_trend<0 else 'stable'} by {abs(round(mood_trend,1))}.")
+            else:
+                insights.append("Not enough historical data to compute trends yet. Log more entries.")
+
+            latest = df.iloc[-1]
+            latest_summary = {
+                'mood_rating': latest.get('mood_rating', None),
+                'stress_level': latest.get('stress_level', None),
+                'fatigue_level': latest.get('fatigue_level', None),
+                'sleep_quality': latest.get('sleep_quality', None),
+                'wellness_score': latest.get('wellness_score', None)
+            }
+
+            if 'created_at' in df.columns and 'notes' in df.columns:
+                notes = df[['created_at', 'notes']].to_dict('records')
+            else:
+                notes = []
+        else:
+            insights = []
+            latest_summary = None
+
+    all_soldiers = db.execute('SELECT DISTINCT soldier_id FROM mood_logs ORDER BY soldier_id ASC').fetchall()
+
+    return render_template('mood_tracker.html', mood_graph_json=mood_graph_json, notes=notes, insights=locals().get('insights', []), latest_summary=locals().get('latest_summary', None), all_soldiers=all_soldiers, selected_soldier_id=selected_soldier_id)
+
+
+@app.route('/soldier/<string:soldier_id>/mood_analysis')
+@login_required
+def mood_analysis(soldier_id):
+    ensure_mood_logs_schema()
+    db = get_db()
+    mood_data = db.execute('''
+        SELECT created_at, mood_rating, stress_level, fatigue_level, sleep_quality, notes 
+        FROM mood_logs 
+        WHERE soldier_id = ? 
+        ORDER BY created_at ASC
+    ''', (soldier_id,)).fetchall()
+
+    if not mood_data:
+        flash('No mood data found for this soldier to analyze.', 'warning')
+        return redirect(url_for('soldier_detail', soldier_id=soldier_id))
+
+    rows = [dict(r) for r in mood_data]
+    df = pd.DataFrame.from_records(rows)
+    if 'created_at' in df.columns:
+        df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce')
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df['created_at'], y=df['stress_level'], mode='lines+markers', name='Stress Level'))
+    fig.add_trace(go.Scatter(x=df['created_at'], y=df['fatigue_level'], mode='lines+markers', name='Fatigue Level'))
+    fig.add_trace(go.Scatter(x=df['created_at'], y=df['sleep_quality'], mode='lines+markers', name='Sleep Quality'))
+
+    fig.update_layout(
+        title=f'Mental Wellness Trends for Soldier {soldier_id}',
+        xaxis_title='Date',
+        yaxis_title='Level (1-5)',
+        template='plotly_dark',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    mood_graph_json = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
+    notes_records = df[['created_at', 'notes']].to_dict('records') if 'created_at' in df.columns and 'notes' in df.columns else []
+    return render_template('mood_analysis.html', soldier_id=soldier_id, mood_graph_json=mood_graph_json, notes=notes_records)
 
 @app.route('/audit-log')
 @login_required
@@ -255,10 +456,8 @@ def audit_log():
     logs = db.execute('SELECT a.timestamp, u.username, a.action, a.details FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id ORDER BY a.timestamp DESC').fetchall()
     return render_template('audit_log.html', logs=logs)
 
-# Command to initialize the database
 @app.cli.command('init-db')
 def init_db_command():
-    """Clears the existing data and creates new tables."""
     db = sqlite3.connect(DATABASE)
     with app.open_resource('schema.sql', mode='r') as f:
         db.cursor().executescript(f.read())

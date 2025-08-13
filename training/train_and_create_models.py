@@ -53,5 +53,4 @@ print(f"\nModel accuracy on test data: {accuracy:.2%}")
 
 with open('ensemble_model.pkl', 'wb') as f:
     pickle.dump(ensemble_clf, f)
-print("\n--- MISSION COMPLETE ---")
 print("Warning-free 'ensemble_model.pkl' has been created and saved.")

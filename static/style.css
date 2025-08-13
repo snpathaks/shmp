@@ -67,6 +67,7 @@ nav .logo {
 h1, h2, h3, h4 {
     color: var(--highlight-text);
     font-weight: 500;
+    margin-top: 0;
 }
 
 h1 {
@@ -79,18 +80,59 @@ h1 {
 
 h2 {
     font-size: 2rem;
-    margin-top: 2rem;
+    margin-bottom: 1.5rem;
+    color: var(--primary-text);
+}
+
+h3 {
+    font-size: 1.5rem;
     margin-bottom: 1rem;
 }
 
-/* --- Forms --- */
-form {
+/* --- Layout Utilities --- */
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 -1rem; /* Gutter compensation */
+}
+.col, .col-md-4, .col-md-6, .col-md-12 {
+    padding: 0 1rem; /* Gutter */
+    box-sizing: border-box;
+    width: 100%;
+}
+.col-md-4 { flex: 0 0 33.33%; max-width: 33.33%; }
+.col-md-6 { flex: 0 0 50%; max-width: 50%; }
+
+.mb-3 { margin-bottom: 1rem !important; }
+.mb-4 { margin-bottom: 1.5rem !important; }
+.mt-4 { margin-top: 1.5rem !important; }
+
+/* --- Cards --- */
+.card {
     background-color: var(--secondary-bg);
-    padding: 2rem;
     border-radius: 8px;
-    margin-top: 1.5rem;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     border: 1px solid var(--card-bg);
+    overflow: hidden;
+    width: 100%;
+    margin-bottom: 2rem;
+}
+.card-header {
+    background-color: var(--card-bg);
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.card-header h3 {
+    margin-bottom: 0;
+}
+.card-body {
+    padding: 1.5rem;
+}
+
+/* --- Forms --- */
+.form-container-skinny {
+    max-width: 500px;
+    margin: 4rem auto;
 }
 
 .form-grid {
@@ -99,9 +141,13 @@ form {
     gap: 1.5rem;
 }
 
-.form-group {
+.form-group, .form-field {
     display: flex;
     flex-direction: column;
+    margin-bottom: 1.5rem;
+}
+.form-field:last-child {
+    margin-bottom: 0;
 }
 
 label {
@@ -119,6 +165,8 @@ input[type="text"], input[type="number"], input[type="password"], textarea, sele
     border-radius: 4px;
     box-sizing: border-box;
     transition: all 0.3s ease;
+    font-family: inherit;
+    font-size: 1rem;
 }
 
 input:focus, textarea:focus, select:focus {
@@ -127,66 +175,99 @@ input:focus, textarea:focus, select:focus {
     box-shadow: 0 0 8px rgba(233, 69, 96, 0.5);
 }
 
-button[type="submit"] {
-    background: linear-gradient(45deg, var(--primary-text), #ff7e5f);
-    color: white;
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    background: var(--card-bg);
+    border-radius: 5px;
+    outline: none;
+    padding: 0;
+}
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: var(--primary-text);
+    cursor: pointer;
+    border-radius: 50%;
+}
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: var(--primary-text);
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+
+/* --- Buttons --- */
+.btn, .button-link {
+    display: inline-block;
     padding: 0.8rem 2rem;
     border: none;
     border-radius: 5px;
     cursor: pointer;
     font-size: 1rem;
     font-weight: 700;
+    text-align: center;
+    text-decoration: none;
     transition: all 0.3s ease;
-    margin-top: 1.5rem;
-    width: 100%;
+    color: white !important; /* Important to override link colors */
+}
+.btn:hover, .button-link:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 20px rgba(0,0,0, 0.3);
 }
 
-button[type="submit"]:hover {
-    transform: scale(1.02);
+.btn-primary {
+    background: linear-gradient(45deg, var(--primary-text), #ff7e5f);
+}
+.btn-primary:hover {
     box-shadow: 0 4px 20px rgba(233, 69, 96, 0.4);
+}
+
+.btn-success { background-color: var(--success-color); }
+.btn-secondary { background-color: #6c757d; }
+.btn-info { background-color: #0dcaf0; }
+
+.btn-block {
+    display: block;
+    width: 100%;
 }
 
 /* --- Tables --- */
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 1.5rem;
     background-color: var(--secondary-bg);
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
-
 th, td {
     padding: 1rem 1.2rem;
     text-align: left;
     border-bottom: 1px solid var(--card-bg);
 }
-
 thead {
     background-color: var(--card-bg);
     color: var(--highlight-text);
     font-weight: 700;
 }
-
-tbody tr {
-    transition: background-color 0.2s ease;
-}
-
-tbody tr:hover {
-    background-color: #1f3a69;
-}
+tbody tr:hover { background-color: #1f3a69; }
 
 /* --- Alerts & Flash Messages --- */
 .flash {
     padding: 1rem;
-    margin: 1rem 0;
+    margin-bottom: 1.5rem;
     border-radius: 5px;
     color: var(--highlight-text);
     font-weight: 500;
     text-align: center;
 }
-
 .flash.success { background-color: var(--success-color); }
 .flash.error { background-color: var(--error-color); }
 
@@ -195,29 +276,17 @@ tbody tr:hover {
 .threat-Medium { color: var(--warning-color); font-weight: bold; }
 .threat-Low { color: var(--success-color); font-weight: bold; }
 
-/* --- Buttons & Links --- */
-.button-link {
-    background-color: var(--primary-text);
-    color: white !important;
-    padding: 0.5rem 1rem;
-    text-decoration: none;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.3s ease;
+/* --- Soldier Detail Page Specifics --- */
+.detail-actions {
+    margin-bottom: 2rem;
+    display: flex;
+    gap: 1rem;
 }
-
-.button-link:hover {
-    background-color: #e94560c0;
-    transform: translateY(-2px);
-}
-
-/* --- Soldier Detail Page --- */
-.history-container { 
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 1.5rem; 
-    margin-top: 1.5rem; 
+#health-chart, .plotly-chart {
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .check-card { 
@@ -225,73 +294,47 @@ tbody tr:hover {
     border: 1px solid var(--card-bg); 
     border-radius: 8px; 
     overflow: hidden;
-    transition: all 0.3s ease;
+    margin-bottom: 1.5rem;
 }
-.check-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-}
-
-.card-header { 
+.check-card .card-header { 
     background-color: var(--card-bg); 
     padding: 1rem; 
     border-bottom: 1px solid var(--border-color); 
     font-weight: 700;
     color: var(--highlight-text);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
-
-.card-body { 
-    display: flex; 
-    flex-direction: column;
-    padding: 1rem; 
-    gap: 1rem; 
+.check-card .card-body { 
+    padding: 0;
 }
-
-.metrics, .analysis { 
-    flex: 1; 
+.check-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
 }
-.metrics p, .analysis p {
-    margin: 0.5rem 0;
+.check-card li {
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid var(--card-bg);
 }
-.metrics strong, .analysis strong {
+.check-card li:last-child {
+    border-bottom: none;
+}
+.check-card strong {
     color: var(--primary-text);
 }
 
-.shap-explanation ul { 
-    list-style: none; 
-    padding: 0; 
-    margin-top: 0.5rem; 
+.threat-badge {
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: white;
 }
-.shap-explanation li { 
-    margin-bottom: 0.5rem; 
-    white-space: nowrap; 
-    display: flex;
-    align-items: center;
-}
+.threat-badge.High { background-color: var(--error-color); }
+.threat-badge.Medium { background-color: var(--warning-color); color: #111; }
+.threat-badge.Low { background-color: var(--success-color); }
 
-.shap-bar { 
-    display: inline-block; 
-    height: 12px; 
-    vertical-align: middle; 
-    margin-left: 10px;
-    border-radius: 3px;
-    transition: width 0.5s ease-in-out;
-}
-.shap-positive .shap-bar { background-color: var(--error-color); }
-.shap-negative .shap-bar { background-color: var(--success-color); }
-
-.shap-value { 
-    font-size: 0.8rem; 
-    color: var(--secondary-text);
-    margin-left: 8px;
-}
-
-#health-chart {
-    border-radius: 8px;
-    overflow: hidden;
-    margin-top: 2rem;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-}
 
 /* --- Responsive Design --- */
 @media (max-width: 768px) {
@@ -306,5 +349,9 @@ tbody tr:hover {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
+    }
+    .col-md-4, .col-md-6 {
+        flex: 0 0 100%;
+        max-width: 100%;
     }
 }

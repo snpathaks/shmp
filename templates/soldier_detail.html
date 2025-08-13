@@ -1,75 +1,97 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
-{% block title %}Hub for {{ soldier_id }} - {{ super() }}{% endblock %}
-
-{% block head_extra %}
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <style>
-        .shap-bar {
-            display: inline-block;
-            height: 10px;
-            background-color: #4caf50;
-        }
-        .shap-positive .shap-bar {
-            background-color: #4caf50;
-        }
-        .shap-negative .shap-bar {
-            background-color: #f44336;
-        }
-    </style>
+{% block header %}
+  <h1>{% block title %}Soldier {{ soldier_id }} - Wellness Details{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
-    <h1>Wellness Hub: Soldier {{ soldier_id }}</h1>
+<div class="detail-actions">
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">&larr; Back to Dashboard</a>
+    <a href="{{ url_for('mood_tracker', soldier_id=soldier_id) }}" class="btn btn-info">
+        View Mental Wellness Analysis
+    </a>
+</div>
 
-    <div id="health-chart"></div>
-
-    <h2>Check-in History & Threat Analysis</h2>
-    <div class="history-container">
-    {% for check in history|reverse %}
-        <div class="check-card">
-            <div class="card-header">
-                <strong>Check-in:</strong> {{ check.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
-            </div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
             <div class="card-body">
-                <div class="metrics">
-                    <h4>Vitals</h4>
-                    <p><strong>Heart Rate:</strong> {{ check.heart_rate }} bpm</p>
-                    <p><strong>Temperature:</strong> {{ check.body_temperature }} °C</p>
-                    <p><strong>SpO2:</strong> {{ check.spo2 }} %</p>
-                    <p><strong>Steps:</strong> {{ check.steps_count }}</p>
-                </div>
-                <div class="analysis">
-                    <h4>Threat Analysis</h4>
-                    <p><strong>Prediction:</strong> <span class="threat-{{ check.prediction_result }}">{{ check.prediction_result }}</span></p>
-                    <div class="shap-explanation">
-                        <strong>Key Factors:</strong>
-                        <ul>
-                        {% for feature, value in check.shap_values.items()|sort(by='value', reverse=true) %}
-                            <li class="shap-{{ 'positive' if value > 0 else 'negative' }}">
-                                {{ feature }}: 
-                                <span class="shap-bar" style="width:{{ ((value|abs) * 200)|round(2) }}px"></span>
-                                <span class="shap-value">({{ '%.2f'|format(value) }})</span>
-                            </li>
-                        {% endfor %}
-                        </ul>
-                    </div>
-                </div>
+                {% if graph_json_metrics %}
+                    <div id="metricsChart" class="plotly-chart"></div>
+                {% else %}
+                    <p style="text-align: center; margin: 0;">No historical metric data to display.</p>
+                {% endif %}
             </div>
         </div>
-    {% endfor %}
     </div>
 
-    <script>
-        var graph = {{ graph_json|safe }};
-        var layout = graph.layout || {};
-        layout.plot_bgcolor = '#16213e';
-        layout.paper_bgcolor = '#16213e';
-        layout.font = { color: '#dcdcdc' };
-        layout.xaxis = { gridcolor: '#0f3460' };
-        layout.yaxis = { gridcolor: '#0f3460' };
-        layout.yaxis2 = Object.assign({ gridcolor: '#0f3460' }, layout.yaxis2 || {});
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                 {% if shap_graph_json %}
+                    <div id="shapChart" class="plotly-chart"></div>
+                 {% else %}
+                    <p style="text-align: center; margin: 0;">No prediction analysis available for the latest check-in.</p>
+                 {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 
-        Plotly.newPlot('health-chart', graph.data, layout, {responsive: true});
-    </script>
+<div>
+    <h2>Check-in History</h2>
+    {% if history %}
+        {% for check in history|reverse %}
+        <div class="check-card">
+            <div class="card-header">
+                <strong>Check-in: {{ check.created_at.strftime('%Y-%m-%d %H:%M:%S') if check.created_at else 'N/A' }}</strong>
+                <span class="threat-badge {{ check.prediction_result }}">
+                    Predicted Threat: {{ check.prediction_result }}
+                </span>
+            </div>
+            <div class="card-body">
+                <ul>
+                    <li><strong>Age:</strong> {{ check.age }}</li>
+                    <li><strong>Heart Rate:</strong> {{ check.heart_rate }} bpm</li>
+                    <li><strong>Body Temp:</strong> {{ check.body_temperature }} °C</li>
+                    <li><strong>SpO2:</strong> {{ check.spo2 }} %</li>
+                    <li><strong>Steps:</strong> {{ check.steps_count }}</li>
+                </ul>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card"><div class="card-body" style="text-align: center;">No check-in history found.</div></div>
+    {% endif %}
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script id="metrics-data" type="application/json">{{ graph_json_metrics|tojson|safe }}</script>
+<script id="shap-data" type="application/json">{{ shap_graph_json|tojson|safe }}</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            const metricsDataEl = document.getElementById('metrics-data');
+            if (metricsDataEl && metricsDataEl.textContent.trim() !== 'null') {
+                const metricsGraphJson = JSON.parse(metricsDataEl.textContent);
+                Plotly.newPlot('metricsChart', metricsGraphJson.data, metricsGraphJson.layout, {responsive: true});
+            }
+        } catch (e) {
+            console.error("Could not parse metrics chart JSON:", e);
+        }
+
+        try {
+            const shapDataEl = document.getElementById('shap-data');
+            if (shapDataEl && shapDataEl.textContent.trim() !== 'null') {
+                const shapGraphJson = JSON.parse(shapDataEl.textContent);
+                Plotly.newPlot('shapChart', shapGraphJson.data, shapGraphJson.layout, {responsive: true});
+            }
+        } catch(e) {
+             console.error("Could not parse SHAP chart JSON:", e);
+        }
+    });
+</script>
 {% endblock %}

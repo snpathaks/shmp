@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Soldier Wellness Portal{% endblock %}</title>
+    <title>{% block title %}S.H.M.P{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     {% block head_extra %}{% endblock %}
 </head>
 <body>
     <nav>
-        <a href="{{ url_for('index') }}" class="logo">S.W.P.</a>
+        <a href="{{ url_for('index') }}" class="logo">S.H.M.P</a>
         <div>
             <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' else '' }}">Dashboard</a>
             <a href="{{ url_for('mood_tracker') }}" class="{{ 'active' if request.endpoint == 'mood_tracker' else '' }}">Mood Tracker</a>
@@ -25,6 +25,7 @@
         </div>
     </nav>
     <main class="container">
+        {% block header %}{% endblock %}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -34,5 +35,6 @@
         {% endwith %}
         {% block content %}{% endblock %}
     </main>
+    {% block scripts %}{% endblock %}
 </body>
 </html>
